@@ -62,6 +62,7 @@ int main(int argc, char** argv)
 	std::string                 name("Deployer");
     bool                        requireNameService = false;
     bool                        deploymentOnlyChecked = false;
+	int							minNumberCPU = 0;
 	po::variables_map           vm;
 	po::options_description     taoOptions("Additional options can also be passed to TAO");
 	// we don't actually list any options for TAO ...
@@ -102,12 +103,20 @@ int main(int argc, char** argv)
     // otherwise process all options up to but not including "--"
 	int rc = OCL::deployerParseCmdLine(!found ? argc : taoIndex, argv,
                                        siteFile, scriptFiles, name, requireNameService,deploymentOnlyChecked,
+									   minNumberCPU,
                                        vm, &otherOptions);
 	if (0 != rc)
 	{
 		return rc;
 	}
 
+
+	// check system capabilities
+	rc = OCL::enforceMinNumberCPU(minNumberCPU);
+	if (0 != rc)
+	{
+		return rc;
+	}
 
 #if     defined(ORO_BUILD_LOGGING) && defined(OROSEM_LOG4CPP_LOGGING)
     if (!OCL::deployerConfigureRttLog4cppCategory(rttLog4cppConfigFile))
@@ -157,7 +166,6 @@ int main(int argc, char** argv)
             TaskContextServer::InitOrb( argc - taoIndex, &argv[taoIndex] );
 
             OCL::CorbaDeploymentComponent dc( name, siteFile );
-            bool result = false;
 
             if (0 == TaskContextServer::Create( &dc, true, requireNameService ))
                 {
@@ -167,9 +175,15 @@ int main(int argc, char** argv)
             // The orb thread accepts incomming CORBA calls.
             TaskContextServer::ThreadOrb();
 
-            // Only start the scripts after the Orb was created.
+            /* Only start the scripts after the Orb was created. Processing of
+               scripts stops after the first failed script, and -1 is returned.
+               Whether a script failed or all scripts succeeded, in non-daemon
+               and non-checking mode the TaskBrowser will be run to allow
+               inspection.
+             */
+            bool result = true;
             for (std::vector<std::string>::const_iterator iter=scriptFiles.begin();
-                 iter!=scriptFiles.end();
+                 iter!=scriptFiles.end() && result;
                  ++iter)
             {
                 if ( !(*iter).empty() )

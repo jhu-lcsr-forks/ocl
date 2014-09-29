@@ -6,6 +6,11 @@
 #include "CategoryStream.hpp"
 #include <rtt/Port.hpp>
 
+// forward declare
+namespace RTT {
+    class ConnPolicy;
+}
+
 namespace OCL {
 namespace logging {
 
@@ -158,6 +163,21 @@ protected:
     /// for access to \a log_port
     friend class OCL::logging::LoggingService;
     
+public:
+    /** Connect \a otherPort to \a log_port.
+         Typically used by unit test code to directly syphon off logging events.
+         @return true if connected sucessfully, otherwise false
+         @note No error is logged if fails to connect
+     */
+    bool connectToLogPort(RTT::base::PortInterface& otherPort);
+    /** Connect \a otherPort to \a log_port with connection policy \a cp.
+         Typically used by unit test code to directly syphon off logging events.
+         @return true if connected sucessfully, otherwise false
+         @note No error is logged if fails to connect
+     */
+    bool connectToLogPort(RTT::base::PortInterface& otherPort,
+                          RTT::ConnPolicy&          cp);
+
 private:
     /* prevent copying and assignment */
     Category(const Category& other);
